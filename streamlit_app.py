@@ -1,151 +1,123 @@
 import streamlit as st
 import pandas as pd
-import math
-from pathlib import Path
+import plotly.express as px
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-# Set the title and favicon that appear in the Browser's tab bar.
-st.set_page_config(
-    page_title='GDP dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
-)
-
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
-
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
-
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
-
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
-
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
-
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
-    )
-
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
-
-    return gdp_df
-
-gdp_df = get_gdp_data()
-
-# -----------------------------------------------------------------------------
-# Draw the actual page
-
-# Set the title that appears at the top of the page.
-'''
-# :earth_americas: GDP dashboard
-
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
-'''
-
-# Add some spacing
-''
-''
-
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
-
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
-
-countries = gdp_df['Country Code'].unique()
-
-if not len(countries):
-    st.warning("Select at least one country")
-
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
-
-''
-''
-''
-
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
-]
-
-st.header('GDP over time', divider='gray')
-
-''
-
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
-)
-
-''
-''
+sheet_url = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQFAmlsEc4GFVVbHjz3HjEYntw7ITlJRm2AFkgcHXXUTj0M1I-bJQwpBRLWa2D60b7tmiy_Vop8wtMR/pub?output=csv'
+df = pd.read_csv(sheet_url)
 
 
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
+# Streamlit app setup
+st.set_page_config(page_title="Employee Dashboard", layout="wide")
+st.title("Employee Dashboard")
 
-st.header(f'GDP in {to_year}', divider='gray')
 
-''
+st.subheader("Employee Count by Job Title")
+job_title_count = df['Job Title'].value_counts()
+st.bar_chart(job_title_count)
 
-cols = st.columns(4)
+st.subheader("Employment Status Distribution")
+employment_status_count = df['Employment Status'].value_counts()
+st.bar_chart(employment_status_count)
 
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
+st.subheader("Years of Service Distribution")
+years_of_service_count = df['Years Of Service'].value_counts()
+st.bar_chart(years_of_service_count)
 
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
+st.subheader("Nationality")
+nationality = df['Nationality'].value_counts()
+st.bar_chart(nationality)
 
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
-        else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
+st.subheader("Marital Status")
+marital_status = df['Marital Status'].value_counts()
+st.bar_chart(marital_status)
 
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
-        )
+st.subheader("Education")
+education = df['Education'].value_counts()
+st.bar_chart(education)
+
+# Add, Update, and Delete Employees Section
+employee_names = df['Employee Name'].tolist()
+
+# Display dropdown for selecting an employee
+selected_employee = st.selectbox('Select an Employee', employee_names)
+
+# Show employee details if selected
+if selected_employee:
+    selected_employee_data = df[df['Employee Name'] == selected_employee].iloc[0]
+    st.write("### Employee Details")
+    for col in selected_employee_data.index:
+        st.write(f"**{col}:** {selected_employee_data[col]}")
+
+    # Update employee details
+    st.header("Update Employee")
+    new_name = st.text_input('Update Name', value=selected_employee_data['Employee Name'])
+    new_job_title = st.selectbox('Update Job Title', df['Job Title'].unique(), index=df['Job Title'].tolist().index(selected_employee_data['Job Title']))
+
+    if st.button("Update"):
+        df.loc[df['Employee Name'] == selected_employee, 'Employee Name'] = new_name
+        df.loc[df['Employee Name'] == selected_employee, 'Job Title'] = new_job_title
+        st.success(f"Employee {selected_employee} updated successfully!")
+        # Update Google Sheets data
+        worksheet.update([df.columns.values.tolist()] + df.values.tolist())
+
+    # Delete employee
+    if st.button("Delete Employee"):
+        df = df[df['Employee Name'] != selected_employee]
+        st.success(f"Employee {selected_employee} deleted successfully!")
+        # Update Google Sheets data
+        worksheet.update([df.columns.values.tolist()] + df.values.tolist())
+
+# Add new employee form
+st.header("Add New Employee")
+new_employee_name = st.text_input("Employee Name")
+new_employee_id = st.text_input("Employee ID")
+new_employee_hire_date = st.date_input("Hire Date")
+new_employee_location = st.text_input("Location")
+new_employee_sector = st.text_input("Sector")
+new_employee_department = st.text_input("Department")
+new_employee_job_title = st.text_input("Job Title")
+new_employee_line_manager = st.text_input("Line Manager")
+new_employee_birth_date = st.date_input("Birth Date")
+new_employee_nationality = st.text_input("Nationality")
+new_employee_email = st.text_input("Work Email")
+new_employee_mobile = st.text_input("Mobile No.")
+new_employee_phone = st.text_input("Phone No.")
+new_employee_contract_start_date = st.date_input("Current Contract Start Date")
+new_employee_status = st.text_input("Employment Status")
+new_employee_work_days = st.text_input("Work Days")
+new_employee_marital_status = st.text_input("Marital Status")
+new_employee_education = st.text_input("Education")
+new_employee_years_of_service = st.text_input("Years Of Service")
+
+if st.button("Add Employee"):
+    new_employee = {
+        'Employee Name': new_employee_name,
+        'ID': new_employee_id,
+        'Hire Date': str(new_employee_hire_date),
+        'Location': new_employee_location,
+        'Sector': new_employee_sector,
+        'Department': new_employee_department,
+        'Job Title': new_employee_job_title,
+        'Line Manager': new_employee_line_manager,
+        'Birth Date': str(new_employee_birth_date),
+        'Nationality': new_employee_nationality,
+        'Work Email': new_employee_email,
+        'Mobile No.': new_employee_mobile,
+        'Phone No.': new_employee_phone,
+        'Current Contract Start Date': str(new_employee_contract_start_date),
+        'Employment Status': new_employee_status,
+        'Work Days': new_employee_work_days,
+        'Marital Status': new_employee_marital_status,
+        'Education': new_employee_education,
+        'Years Of Service': new_employee_years_of_service
+    }
+    df = df.append(new_employee, ignore_index=True)
+    st.success("New employee added successfully!")
+    # Update Google Sheets data
+    worksheet.update([df.columns.values.tolist()] + df.values.tolist())
+
+# Display the updated employee list
+st.write("### Updated Employee List")
+st.write(df)
